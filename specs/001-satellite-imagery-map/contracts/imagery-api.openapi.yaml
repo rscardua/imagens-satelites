@@ -1,0 +1,189 @@
+openapi: 3.1.0
+info:
+  title: Imagery API — CBERS-4A / NASA GIBS
+  version: 0.1.0
+  description: >
+    API pública (v1, sem autenticação) que busca cenas recentes de satélite via
+    proxy ao vivo (INPE STAC / NASA GIBS) e exibe no mapa. Sem persistência durável.
+servers:
+  - url: /api
+paths:
+  /imagery/search:
+    post:
+      summary: Buscar cenas/camada recentes para uma área e período
+      operationId: searchImagery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: >
+            Sucesso. `scenes` pode vir vazio quando não há cobertura (FR-008);
+            isso NÃO é erro.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResult'
+        '422':
+          description: Área muito ampla (FR-011) ou parâmetros inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '502':
+          description: Provedor externo indisponível (FR-009). Sugere fonte alternativa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '504':
+          description: Timeout do provedor externo (FR-009).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /imagery/assets:
+    get:
+      summary: Proxy de asset visual (thumbnail/preview) de uma cena
+      description: >
+        Faz stream do recurso do provedor (resolve CORS e oculta URL externa).
+        Usado pelo ImageOverlay da cena priorizada (R3/R5).
+      operationId: proxyAsset
+      parameters:
+        - name: source
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/SourceId' }
+        - name: scene_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: asset
+          in: query
+          required: true
+          schema: { type: string, enum: [thumbnail, preview] }
+      responses:
+        '200':
+          description: Bytes da imagem.
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        '404': { description: Asset inexistente. }
+        '502': { description: Falha ao obter do provedor. }
+  /imagery/tiles/{z}/{x}/{y}:
+    get:
+      summary: Proxy de tile (NASA GIBS) para a camada de imagery
+      operationId: proxyTile
+      parameters:
+        - { name: z, in: path, required: true, schema: { type: integer } }
+        - { name: x, in: path, required: true, schema: { type: integer } }
+        - { name: y, in: path, required: true, schema: { type: integer } }
+        - name: layer
+          in: query
+          required: true
+          schema: { type: string }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Tile de imagem.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+        '502': { description: Falha ao obter tile do provedor. }
+components:
+  schemas:
+    SourceId:
+      type: string
+      enum: [inpe, nasa]
+    SearchRequest:
+      type: object
+      required: [bbox, source]
+      properties:
+        bbox:
+          type: array
+          minItems: 4
+          maxItems: 4
+          items: { type: number }
+          description: '[min_lon, min_lat, max_lon, max_lat] em EPSG:4326'
+        source: { $ref: '#/components/schemas/SourceId' }
+        date_from:
+          type: string
+          format: date-time
+          description: Default now-30d quando omitido.
+        date_to:
+          type: string
+          format: date-time
+          description: Default now quando omitido.
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+    Scene:
+      type: object
+      required: [id, acquired_at, source, sensor, footprint]
+      properties:
+        id: { type: string }
+        acquired_at: { type: string, format: date-time }
+        source: { $ref: '#/components/schemas/SourceId' }
+        sensor: { type: string }
+        cloud_cover:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+        footprint:
+          type: object
+          description: GeoJSON Polygon/MultiPolygon do footprint da cena.
+        preview_asset:
+          type: string
+          nullable: true
+          enum: [thumbnail, preview]
+          description: Asset disponível p/ overlay (via /imagery/assets).
+    TileLayerDescriptor:
+      type: object
+      required: [source, url_template, layer, date, max_zoom, attribution]
+      properties:
+        source: { $ref: '#/components/schemas/SourceId' }
+        url_template:
+          type: string
+          description: 'Template servido pelo backend, ex.: /api/imagery/tiles/{z}/{x}/{y}?layer=...&date=...'
+        layer: { type: string }
+        date: { type: string, format: date }
+        max_zoom: { type: integer }
+        attribution: { type: string }
+    SearchResult:
+      type: object
+      required: [source, scenes, truncated]
+      properties:
+        source: { $ref: '#/components/schemas/SourceId' }
+        scenes:
+          type: array
+          items: { $ref: '#/components/schemas/Scene' }
+        prioritized_scene_id:
+          type: string
+          nullable: true
+          description: Cena mais recente p/ overlay (FR-004).
+        tile_layer:
+          allOf: [{ $ref: '#/components/schemas/TileLayerDescriptor' }]
+          nullable: true
+          description: Presente quando source=nasa.
+        truncated:
+          type: boolean
+          description: true se atingiu limit (orientar refinar — FR-011).
+    ErrorBody:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [area_too_large, invalid_params, provider_unavailable, provider_timeout]
+        message: { type: string }
+        suggested_source:
+          $ref: '#/components/schemas/SourceId'

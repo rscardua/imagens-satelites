@@ -1,0 +1,14 @@
+/target
+debug/
+release/
+**/*.rs.bk
+*.rlib
+*.pdb
+.env
+.env.*
+!.env.example
+*.log
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

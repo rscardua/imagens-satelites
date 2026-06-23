@@ -1,0 +1,24 @@
+# Rust / Cargo
+/target/
+**/target/
+*.pdb
+
+# Mantemos Cargo.lock versionado (workspace de aplicação/binários).
+
+# Variáveis de ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Claude Code — notas pessoais não compartilhadas
+CLAUDE.local.md
+
+# Editores / IDEs
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db

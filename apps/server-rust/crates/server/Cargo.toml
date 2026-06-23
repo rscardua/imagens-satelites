@@ -1,0 +1,32 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "server"
+path = "src/main.rs"
+
+[dependencies]
+imagery = { path = "../imagery" }
+shared = { path = "../shared" }
+axum.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+dotenvy = "0.15"
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+bytes.workspace = true
+
+[dev-dependencies]
+reqwest = { workspace = true }
+wiremock = "0.6"
+
+[lints]
+workspace = true
