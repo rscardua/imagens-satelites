@@ -18,10 +18,11 @@ pub struct InpeStacProvider {
     base_url: String,
     collections: Vec<String>,
     http: Client,
+    source: SourceId,
 }
 
 impl InpeStacProvider {
-    /// Constrói o adapter.
+    /// Constrói o adapter para uma `source` específica (ex.: WFI ou WPM da CBERS-4A).
     ///
     /// # Errors
     /// Falha se o cliente HTTP não puder ser construído ou se `collections` for vazio.
@@ -29,6 +30,7 @@ impl InpeStacProvider {
         base_url: impl Into<String>,
         collections: Vec<String>,
         timeout: Duration,
+        source: SourceId,
     ) -> Result<Self, ProviderError> {
         if collections.is_empty() {
             return Err(ProviderError::Protocol(
@@ -43,6 +45,7 @@ impl InpeStacProvider {
             base_url: base_url.into().trim_end_matches('/').to_owned(),
             collections,
             http,
+            source,
         })
     }
 
@@ -114,12 +117,35 @@ impl InpeStacProvider {
         }
         Err(last_err)
     }
+
+    /// Resolve o `href` de um asset (ex.: `tci`, `thumbnail`) de uma cena por id.
+    async fn resolve_href(
+        &self,
+        scene_id: &SceneId,
+        asset_key: &str,
+    ) -> Result<String, ProviderError> {
+        let url = format!("{}/search", self.base_url);
+        let params = vec![
+            ("ids", scene_id.as_str().to_owned()),
+            ("limit", "1".to_owned()),
+        ];
+        let body = self.get_with_retry(&url, &params).await?;
+        body.get("features")
+            .and_then(Value::as_array)
+            .and_then(|a| a.first())
+            .and_then(|f| f.get("assets"))
+            .and_then(|a| a.get(asset_key))
+            .and_then(|a| a.get("href"))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| ProviderError::Protocol(format!("asset '{asset_key}' href not found")))
+    }
 }
 
 #[async_trait]
 impl ImageryProvider for InpeStacProvider {
     fn source(&self) -> SourceId {
-        SourceId::Inpe
+        self.source
     }
 
     async fn search(&self, query: &AreaQuery) -> Result<ProviderResponse, ProviderError> {
@@ -151,7 +177,7 @@ impl ImageryProvider for InpeStacProvider {
         let scenes: Vec<Scene> = features
             .iter()
             .filter_map(|f| {
-                build_scene(f).or_else(|| {
+                build_scene(f, self.source).or_else(|| {
                     warn!("skipping invalid STAC item");
                     None
                 })
@@ -212,6 +238,49 @@ impl ImageryProvider for InpeStacProvider {
             bytes,
         })
     }
+
+    async fn fetch_overview(
+        &self,
+        scene_id: &SceneId,
+        max_size: u32,
+    ) -> Result<AssetPayload, ProviderError> {
+        let href = self.resolve_href(scene_id, "tci").await?;
+        let png = tokio::task::spawn_blocking(move || {
+            let client = reqwest::blocking::Client::builder()
+                .timeout(Duration::from_secs(60))
+                .build()
+                .map_err(|e| ProviderError::Protocol(e.to_string()))?;
+            crate::infrastructure::cog_overview::render_overview_png(client, &href, max_size)
+        })
+        .await
+        .map_err(|e| ProviderError::Protocol(e.to_string()))??;
+        Ok(AssetPayload {
+            content_type: "image/png".to_owned(),
+            bytes: Bytes::from(png),
+        })
+    }
+
+    async fn fetch_window(
+        &self,
+        scene_id: &SceneId,
+        bbox: [f64; 4],
+        target: u32,
+    ) -> Result<AssetPayload, ProviderError> {
+        let href = self.resolve_href(scene_id, "tci").await?;
+        let png = tokio::task::spawn_blocking(move || {
+            let client = reqwest::blocking::Client::builder()
+                .timeout(Duration::from_secs(60))
+                .build()
+                .map_err(|e| ProviderError::Protocol(e.to_string()))?;
+            crate::infrastructure::cog_window::render_window_png(&client, &href, bbox, target)
+        })
+        .await
+        .map_err(|e| ProviderError::Protocol(e.to_string()))??;
+        Ok(AssetPayload {
+            content_type: "image/png".to_owned(),
+            bytes: Bytes::from(png),
+        })
+    }
 }
 
 fn asset_name(kind: AssetKind) -> &'static str {
@@ -231,7 +300,7 @@ fn map_send_error(e: &reqwest::Error) -> ProviderError {
 
 /// Constrói uma [`Scene`] a partir de um Item STAC; retorna `None` se inválido.
 #[allow(clippy::cast_possible_truncation)]
-fn build_scene(item: &Value) -> Option<Scene> {
+fn build_scene(item: &Value, source: SourceId) -> Option<Scene> {
     let id = item.get("id").and_then(Value::as_str)?;
     let scene_id = SceneId::new(id).ok()?;
     let props = item.get("properties")?;
@@ -246,7 +315,11 @@ fn build_scene(item: &Value) -> Option<Scene> {
         .and_then(Value::as_f64)
         .and_then(|v| CloudCover::try_from(v as f32).ok());
 
-    let sensor = extract_sensor(props);
+    let default_sensor = match source {
+        SourceId::InpeWpm => "WPM",
+        _ => "WFI",
+    };
+    let sensor = extract_sensor(props, default_sensor);
     let has_preview = item
         .get("assets")
         .is_some_and(|a| a.get("thumbnail").is_some() || a.get("preview").is_some());
@@ -254,7 +327,7 @@ fn build_scene(item: &Value) -> Option<Scene> {
     Some(Scene {
         id: scene_id,
         acquired_at,
-        source: SourceId::Inpe,
+        source,
         sensor,
         footprint: Footprint::new(geometry),
         cloud_cover,
@@ -262,7 +335,7 @@ fn build_scene(item: &Value) -> Option<Scene> {
     })
 }
 
-fn extract_sensor(props: &Value) -> Sensor {
+fn extract_sensor(props: &Value, default: &str) -> Sensor {
     let raw = props
         .get("instruments")
         .and_then(Value::as_array)
@@ -270,6 +343,6 @@ fn extract_sensor(props: &Value) -> Sensor {
         .and_then(Value::as_str)
         .or_else(|| props.get("platform").and_then(Value::as_str))
         .or_else(|| props.get("bdc:instrument").and_then(Value::as_str))
-        .unwrap_or("WFI");
+        .unwrap_or(default);
     Sensor::new(raw).unwrap_or_else(|_| Sensor::new("WFI").expect("non-empty literal"))
 }

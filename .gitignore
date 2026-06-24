@@ -22,3 +22,10 @@ CLAUDE.local.md
 # OS
 .DS_Store
 Thumbs.db
+
+# Artefatos de teste manual / debug (server-rust)
+apps/server-rust/*.png
+apps/server-rust/*.bin
+apps/server-rust/sid.txt
+apps/server-rust/sp.json
+apps/server-rust/wpm_item.json

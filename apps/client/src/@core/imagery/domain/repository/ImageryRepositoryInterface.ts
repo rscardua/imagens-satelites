@@ -14,4 +14,13 @@ export interface ImageryRepositoryInterface {
   search(input: SearchImageryInput): Promise<ImagerySearchResult>
   /** URL para o asset visual de uma cena (proxy do backend). */
   assetUrl(source: SourceId, sceneId: string, asset: 'thumbnail' | 'preview'): string
+  /** URL para o overview PNG renderizado do COG (maior resolução). */
+  overviewUrl(source: SourceId, sceneId: string, size?: number): string
+  /** URL para render de janela geográfica em resolução nativa (2 m). */
+  windowUrl(
+    source: SourceId,
+    sceneId: string,
+    bbox: [number, number, number, number],
+    size?: number,
+  ): string
 }

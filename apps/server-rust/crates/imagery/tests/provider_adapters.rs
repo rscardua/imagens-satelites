@@ -34,6 +34,7 @@ fn provider(base_url: String, timeout_secs: u64) -> InpeStacProvider {
         base_url,
         vec!["CBERS-WFI-8D-1".to_owned()],
         Duration::from_secs(timeout_secs),
+        SourceId::Inpe,
     )
     .expect("provider")
 }

@@ -59,6 +59,27 @@ pub trait ImageryProvider: Send + Sync {
         scene_id: &SceneId,
         kind: AssetKind,
     ) -> Result<AssetPayload, ProviderError>;
+
+    /// Renderiza um overview PNG de maior resolução da cena (decodifica o COG).
+    /// Default: não suportado (fontes em tiles ou sem COG).
+    async fn fetch_overview(
+        &self,
+        _scene_id: &SceneId,
+        _max_size: u32,
+    ) -> Result<AssetPayload, ProviderError> {
+        Err(ProviderError::Protocol("overview not supported".to_owned()))
+    }
+
+    /// Renderiza uma janela geográfica (`bbox` lon/lat) da cena em resolução
+    /// nativa (PNG). Default: não suportado.
+    async fn fetch_window(
+        &self,
+        _scene_id: &SceneId,
+        _bbox: [f64; 4],
+        _target: u32,
+    ) -> Result<AssetPayload, ProviderError> {
+        Err(ProviderError::Protocol("window not supported".to_owned()))
+    }
 }
 
 /// Port de proxy de tiles (ex.: NASA GIBS). Separado de [`ImageryProvider`] porque

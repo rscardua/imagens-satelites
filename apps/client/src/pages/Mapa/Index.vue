@@ -103,11 +103,11 @@ onBeforeUnmount(() => {
     <div class="toolbar">
       <SourceSelector v-model="source" />
       <DateRangeFilter
-        v-if="source === 'inpe'"
+        v-if="source !== 'nasa'"
         v-model="range"
       />
       <div
-        v-if="source === 'inpe' && scenes.length > 1"
+        v-if="source !== 'nasa' && scenes.length > 1"
         class="cycler"
       >
         <button @click="cycleScene(-1)">

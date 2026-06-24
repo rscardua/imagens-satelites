@@ -26,8 +26,10 @@ impl ImageryAppError {
         match self {
             ImageryAppError::ProviderUnavailable(SourceId::Inpe)
             | ImageryAppError::ProviderTimeout(SourceId::Inpe) => Some(SourceId::Nasa),
-            ImageryAppError::ProviderUnavailable(SourceId::Nasa)
-            | ImageryAppError::ProviderTimeout(SourceId::Nasa) => Some(SourceId::Inpe),
+            ImageryAppError::ProviderUnavailable(SourceId::Nasa | SourceId::InpeWpm)
+            | ImageryAppError::ProviderTimeout(SourceId::Nasa | SourceId::InpeWpm) => {
+                Some(SourceId::Inpe)
+            }
             _ => None,
         }
     }

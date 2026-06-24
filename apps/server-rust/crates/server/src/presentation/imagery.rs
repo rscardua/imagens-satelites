@@ -74,6 +74,24 @@ pub struct TileQuery {
     pub source: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct OverviewQuery {
+    pub source: String,
+    pub scene_id: String,
+    #[serde(default)]
+    pub size: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WindowQuery {
+    pub source: String,
+    pub scene_id: String,
+    /// `min_lon,min_lat,max_lon,max_lat`
+    pub bbox: String,
+    #[serde(default)]
+    pub size: Option<u32>,
+}
+
 /// `POST /api/imagery/search` — busca cenas/camada recentes.
 pub async fn search(
     State(state): State<AppState>,
@@ -117,6 +135,82 @@ pub async fn proxy_asset(State(state): State<AppState>, Query(q): Query<AssetQue
             [
                 (header::CONTENT_TYPE, payload.content_type),
                 (header::CACHE_CONTROL, "public, max-age=300".to_owned()),
+            ],
+            payload.bytes,
+        )
+            .into_response(),
+        Err(app_err) => ApiError(app_err).into_response(),
+    }
+}
+
+/// `GET /api/imagery/overview` — renderiza um overview PNG nítido do COG da cena.
+pub async fn proxy_overview(
+    State(state): State<AppState>,
+    Query(q): Query<OverviewQuery>,
+) -> Response {
+    let source = match SourceId::try_from(q.source.as_str()) {
+        Ok(s) => s,
+        Err(e) => return ValidationError(e.to_string()).into_response(),
+    };
+    let scene_id = match imagery::SceneId::new(q.scene_id) {
+        Ok(id) => id,
+        Err(e) => return ValidationError(e.to_string()).into_response(),
+    };
+    let size = q.size.unwrap_or(2048).clamp(256, 4096);
+
+    match state.search.fetch_overview(source, &scene_id, size).await {
+        Ok(payload) => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, payload.content_type),
+                (header::CACHE_CONTROL, "public, max-age=600".to_owned()),
+            ],
+            payload.bytes,
+        )
+            .into_response(),
+        Err(app_err) => ApiError(app_err).into_response(),
+    }
+}
+
+/// `GET /api/imagery/window` — renderiza uma janela geográfica em resolução nativa (2 m).
+pub async fn proxy_window(State(state): State<AppState>, Query(q): Query<WindowQuery>) -> Response {
+    let source = match SourceId::try_from(q.source.as_str()) {
+        Ok(s) => s,
+        Err(e) => return ValidationError(e.to_string()).into_response(),
+    };
+    let scene_id = match imagery::SceneId::new(q.scene_id) {
+        Ok(id) => id,
+        Err(e) => return ValidationError(e.to_string()).into_response(),
+    };
+    let parts: Vec<f64> = q
+        .bbox
+        .split(',')
+        .filter_map(|p| p.trim().parse::<f64>().ok())
+        .collect();
+    let [min_lon, min_lat, max_lon, max_lat] = match parts.as_slice() {
+        [lon0, lat0, lon1, lat1] => [*lon0, *lat0, *lon1, *lat1],
+        _ => {
+            return ValidationError("bbox must be 'minLon,minLat,maxLon,maxLat'".to_owned())
+                .into_response();
+        }
+    };
+    let size = q.size.unwrap_or(1024).clamp(256, 4096);
+
+    match state
+        .search
+        .fetch_window(
+            source,
+            &scene_id,
+            [min_lon, min_lat, max_lon, max_lat],
+            size,
+        )
+        .await
+    {
+        Ok(payload) => (
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, payload.content_type),
+                (header::CACHE_CONTROL, "public, max-age=600".to_owned()),
             ],
             payload.bytes,
         )

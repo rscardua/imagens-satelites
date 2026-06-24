@@ -13,6 +13,7 @@ fn config(gibs_base_url: String) -> AppConfig {
         bind_addr: "127.0.0.1:0".to_owned(),
         inpe_base_url: "https://example.invalid/stac".to_owned(),
         inpe_collections: vec!["CBERS-WFI-8D-1".to_owned()],
+        inpe_wpm_collections: vec!["CB4A-WPM-PCA-FUSED-1".to_owned()],
         gibs_base_url,
         gibs_layer: "VIIRS_NOAA20_CorrectedReflectance_TrueColor".to_owned(),
         provider_timeout: Duration::from_secs(5),

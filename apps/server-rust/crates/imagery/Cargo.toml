@@ -12,9 +12,12 @@ thiserror.workspace = true
 tracing.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
-reqwest.workspace = true
+tokio = { workspace = true }
+reqwest = { workspace = true, features = ["blocking"] }
 moka.workspace = true
 bytes.workspace = true
+tiff = "0.9"
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [dev-dependencies]
 tokio = { workspace = true }

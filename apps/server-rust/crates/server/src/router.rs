@@ -22,6 +22,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/health", get(health))
         .route("/api/imagery/search", post(imagery::search))
         .route("/api/imagery/assets", get(imagery::proxy_asset))
+        .route("/api/imagery/overview", get(imagery::proxy_overview))
+        .route("/api/imagery/window", get(imagery::proxy_window))
         .route("/api/imagery/tiles/{z}/{x}/{y}", get(imagery::proxy_tile))
         .layer(TraceLayer::new_for_http())
         .layer(TimeoutLayer::with_status_code(

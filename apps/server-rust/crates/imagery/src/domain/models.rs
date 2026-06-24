@@ -6,8 +6,10 @@ use super::errors::ImageryDomainError;
 /// Fonte de imagens suportada.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SourceId {
-    /// INPE — CBERS-4A via catálogo STAC.
+    /// INPE — CBERS-4A/WFI (composto 8 dias, ~64 m) via catálogo STAC.
     Inpe,
+    /// INPE — CBERS-4A/WPM (pan-sharpened RGB, ~2 m) via catálogo STAC.
+    InpeWpm,
     /// NASA — GIBS via tiles WMTS.
     Nasa,
 }
@@ -17,6 +19,7 @@ impl SourceId {
     pub fn as_str(self) -> &'static str {
         match self {
             SourceId::Inpe => "inpe",
+            SourceId::InpeWpm => "inpe-wpm",
             SourceId::Nasa => "nasa",
         }
     }
@@ -42,6 +45,7 @@ impl TryFrom<&str> for SourceId {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "inpe" => Ok(SourceId::Inpe),
+            "inpe-wpm" => Ok(SourceId::InpeWpm),
             "nasa" => Ok(SourceId::Nasa),
             other => Err(ImageryDomainError::UnknownSource(other.to_owned())),
         }

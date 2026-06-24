@@ -127,24 +127,62 @@ export function useSatelliteMap(repository: ImageryRepositoryInterface) {
     if (prioritized) overlayScene(prioritized)
   }
 
-  /** Sobrepõe o raster (preview) de uma cena específica (navegação por data — US2). */
+  /** Sobrepõe o raster de uma cena. WPM: janela do viewport em 2 m; demais: footprint. */
   function overlayScene(scene: SceneEntity): void {
     if (!map) return
     removeLayerAndSource('scene-image')
-    if (!scene.previewAsset) return
-    const corners = footprintCorners(scene)
-    if (!corners) return
-    map.addSource('scene-image', {
-      type: 'image',
-      url: repository.assetUrl(scene.source, scene.id, scene.previewAsset),
-      coordinates: corners,
-    })
-    // Abaixo do contorno (footprints-line) quando existir.
+
+    let corners: Corners | null
+    let url: string
+
+    if (scene.source === 'inpe-wpm') {
+      // Janela = interseção do viewport com o footprint, renderizada em 2 m nativos.
+      const win = clampToFootprint(scene, map.getBounds())
+      if (!win) return
+      corners = bboxCorners(win)
+      url = repository.windowUrl(scene.source, scene.id, win)
+    } else {
+      if (!scene.previewAsset) return
+      corners = footprintCorners(scene)
+      if (!corners) return
+      url = repository.assetUrl(scene.source, scene.id, scene.previewAsset)
+    }
+
+    map.addSource('scene-image', { type: 'image', url, coordinates: corners })
     const before = map.getLayer('footprints-line') ? 'footprints-line' : undefined
     map.addLayer(
-      { id: 'scene-image', type: 'raster', source: 'scene-image', paint: { 'raster-opacity': 0.9 } },
+      { id: 'scene-image', type: 'raster', source: 'scene-image', paint: { 'raster-opacity': 1 } },
       before,
     )
+  }
+
+  /** Interseção [minLon,minLat,maxLon,maxLat] do viewport com o footprint da cena. */
+  function clampToFootprint(
+    scene: SceneEntity,
+    bounds: maplibregl.LngLatBounds,
+  ): [number, number, number, number] | null {
+    const fc = footprintCorners(scene)
+    if (!fc) return null
+    const fMinLon = fc[3][0]
+    const fMinLat = fc[3][1]
+    const fMaxLon = fc[1][0]
+    const fMaxLat = fc[1][1]
+    const minLon = Math.max(bounds.getWest(), fMinLon)
+    const minLat = Math.max(bounds.getSouth(), fMinLat)
+    const maxLon = Math.min(bounds.getEast(), fMaxLon)
+    const maxLat = Math.min(bounds.getNorth(), fMaxLat)
+    if (minLon >= maxLon || minLat >= maxLat) return null
+    return [minLon, minLat, maxLon, maxLat]
+  }
+
+  function bboxCorners(b: [number, number, number, number]): Corners {
+    const [minLon, minLat, maxLon, maxLat] = b
+    return [
+      [minLon, maxLat],
+      [maxLon, maxLat],
+      [maxLon, minLat],
+      [minLon, minLat],
+    ]
   }
 
   function footprintCorners(scene: SceneEntity): Corners | null {

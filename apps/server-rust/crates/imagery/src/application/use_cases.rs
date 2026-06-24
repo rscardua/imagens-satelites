@@ -120,6 +120,41 @@ impl SearchRecentImagery {
             .map_err(|e| Self::map_provider_error(source, e))
     }
 
+    /// Renderiza um overview PNG de maior resolução da cena (decodifica o COG).
+    ///
+    /// # Errors
+    /// Falha se a fonte não estiver configurada ou o provider falhar.
+    pub async fn fetch_overview(
+        &self,
+        source: SourceId,
+        scene_id: &SceneId,
+        max_size: u32,
+    ) -> Result<AssetPayload, ImageryAppError> {
+        let provider = self.provider(source)?;
+        provider
+            .fetch_overview(scene_id, max_size)
+            .await
+            .map_err(|e| Self::map_provider_error(source, e))
+    }
+
+    /// Renderiza uma janela geográfica da cena em resolução nativa (PNG).
+    ///
+    /// # Errors
+    /// Falha se a fonte não estiver configurada ou o provider falhar.
+    pub async fn fetch_window(
+        &self,
+        source: SourceId,
+        scene_id: &SceneId,
+        bbox: [f64; 4],
+        target: u32,
+    ) -> Result<AssetPayload, ImageryAppError> {
+        let provider = self.provider(source)?;
+        provider
+            .fetch_window(scene_id, bbox, target)
+            .await
+            .map_err(|e| Self::map_provider_error(source, e))
+    }
+
     fn default_range(&self) -> DateRange {
         let now = self.clock.now();
         let start = now - Duration::days(self.config.default_window_days);

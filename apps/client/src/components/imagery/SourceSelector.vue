@@ -5,7 +5,8 @@ defineProps<{ modelValue: SourceId }>()
 const emit = defineEmits<{ 'update:modelValue': [SourceId] }>()
 
 const options: { id: SourceId; label: string }[] = [
-  { id: 'inpe', label: 'INPE · CBERS-4A' },
+  { id: 'inpe', label: 'INPE · WFI 64m' },
+  { id: 'inpe-wpm', label: 'INPE · WPM 2m' },
   { id: 'nasa', label: 'NASA · GIBS' },
 ]
 </script>

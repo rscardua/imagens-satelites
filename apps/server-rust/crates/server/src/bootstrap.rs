@@ -20,13 +20,26 @@ pub async fn build_state(config: AppConfig) -> Result<AppState> {
         config.inpe_base_url.clone(),
         config.inpe_collections.clone(),
         config.provider_timeout,
+        SourceId::Inpe,
     )
     .map_err(|e| anyhow::anyhow!("failed to build INPE STAC provider: {e}"))?;
+
+    let inpe_wpm = InpeStacProvider::new(
+        config.inpe_base_url.clone(),
+        config.inpe_wpm_collections.clone(),
+        config.provider_timeout,
+        SourceId::InpeWpm,
+    )
+    .map_err(|e| anyhow::anyhow!("failed to build INPE WPM provider: {e}"))?;
 
     if config.validate_collections {
         inpe.validate_collections()
             .await
             .map_err(|e| anyhow::anyhow!("STAC collections validation failed: {e}"))?;
+        inpe_wpm
+            .validate_collections()
+            .await
+            .map_err(|e| anyhow::anyhow!("WPM collections validation failed: {e}"))?;
     }
 
     let gibs = Arc::new(
@@ -40,6 +53,7 @@ pub async fn build_state(config: AppConfig) -> Result<AppState> {
 
     let mut providers: HashMap<SourceId, Arc<dyn ImageryProvider>> = HashMap::new();
     providers.insert(SourceId::Inpe, Arc::new(inpe));
+    providers.insert(SourceId::InpeWpm, Arc::new(inpe_wpm));
     providers.insert(SourceId::Nasa, gibs.clone());
 
     let mut tile_providers: HashMap<SourceId, Arc<dyn TileProvider>> = HashMap::new();

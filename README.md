@@ -75,7 +75,8 @@ ou no ambiente — o ambiente tem precedência):
 | Variável | Default | Descrição |
 |---|---|---|
 | `IMAGERY_INPE_STAC_BASE_URL` | _(obrigatória)_ | Base do STAC INPE |
-| `IMAGERY_INPE_STAC_COLLECTIONS` | _(obrigatória)_ | IDs de coleção CBERS-4A (separados por vírgula) |
+| `IMAGERY_INPE_STAC_COLLECTIONS` | _(obrigatória)_ | Coleções CBERS-4A/WFI (~64 m, regional) |
+| `IMAGERY_INPE_WPM_COLLECTIONS` | `CB4A-WPM-PCA-FUSED-1` | Coleções CBERS-4A/WPM (~2 m, urbano) |
 | `IMAGERY_NASA_GIBS_BASE_URL` | `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best` | Base do GIBS |
 | `IMAGERY_NASA_GIBS_LAYER` | `VIIRS_NOAA20_CorrectedReflectance_TrueColor` | Camada GIBS |
 | `IMAGERY_PROVIDER_TIMEOUT_SECS` | `8` | Timeout por provedor |

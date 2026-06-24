@@ -8,6 +8,7 @@ pub struct AppConfig {
     pub bind_addr: String,
     pub inpe_base_url: String,
     pub inpe_collections: Vec<String>,
+    pub inpe_wpm_collections: Vec<String>,
     pub gibs_base_url: String,
     pub gibs_layer: String,
     pub provider_timeout: Duration,
@@ -36,10 +37,18 @@ impl AppConfig {
             "IMAGERY_INPE_STAC_COLLECTIONS must list at least one collection id"
         );
 
+        let inpe_wpm_collections: Vec<String> =
+            optional("IMAGERY_INPE_WPM_COLLECTIONS", "CB4A-WPM-PCA-FUSED-1")
+                .split(',')
+                .map(|s| s.trim().to_owned())
+                .filter(|s| !s.is_empty())
+                .collect();
+
         Ok(Self {
             bind_addr: optional("HTTP_BIND_ADDR", "0.0.0.0:8080"),
             inpe_base_url: required("IMAGERY_INPE_STAC_BASE_URL")?,
             inpe_collections,
+            inpe_wpm_collections,
             gibs_base_url: optional(
                 "IMAGERY_NASA_GIBS_BASE_URL",
                 "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best",

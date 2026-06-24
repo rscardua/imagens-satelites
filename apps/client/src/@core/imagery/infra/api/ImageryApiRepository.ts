@@ -12,7 +12,7 @@ import type {
   SearchImageryInput,
 } from '../../domain/repository/ImageryRepositoryInterface'
 
-const sourceSchema = z.enum(['inpe', 'nasa'])
+const sourceSchema = z.enum(['inpe', 'inpe-wpm', 'nasa'])
 
 const sceneSchema = z.object({
   id: z.string(),
@@ -59,6 +59,26 @@ export class ImageryApiRepository implements ImageryRepositoryInterface {
   assetUrl(source: SourceId, sceneId: string, asset: 'thumbnail' | 'preview'): string {
     const q = new URLSearchParams({ source, scene_id: sceneId, asset })
     return this.http.url(`/api/imagery/assets?${q.toString()}`)
+  }
+
+  overviewUrl(source: SourceId, sceneId: string, size = 2048): string {
+    const q = new URLSearchParams({ source, scene_id: sceneId, size: String(size) })
+    return this.http.url(`/api/imagery/overview?${q.toString()}`)
+  }
+
+  windowUrl(
+    source: SourceId,
+    sceneId: string,
+    bbox: [number, number, number, number],
+    size = 1024,
+  ): string {
+    const q = new URLSearchParams({
+      source,
+      scene_id: sceneId,
+      bbox: bbox.join(','),
+      size: String(size),
+    })
+    return this.http.url(`/api/imagery/window?${q.toString()}`)
   }
 }
 

@@ -1,4 +1,4 @@
-export type SourceId = 'inpe' | 'nasa'
+export type SourceId = 'inpe' | 'inpe-wpm' | 'nasa'
 
 /** Cena de satélite exibida no mapa. */
 export interface SceneEntity {

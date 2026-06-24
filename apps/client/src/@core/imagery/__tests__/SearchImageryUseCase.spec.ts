@@ -20,6 +20,19 @@ class FakeRepository implements ImageryRepositoryInterface {
   assetUrl(source: SourceId, sceneId: string, asset: 'thumbnail' | 'preview'): string {
     return `/api/imagery/assets?source=${source}&scene_id=${sceneId}&asset=${asset}`
   }
+
+  overviewUrl(source: SourceId, sceneId: string, size = 2048): string {
+    return `/api/imagery/overview?source=${source}&scene_id=${sceneId}&size=${size}`
+  }
+
+  windowUrl(
+    source: SourceId,
+    sceneId: string,
+    bbox: [number, number, number, number],
+    size = 1024,
+  ): string {
+    return `/api/imagery/window?source=${source}&scene_id=${sceneId}&bbox=${bbox.join(',')}&size=${size}`
+  }
 }
 
 describe('SearchImageryUseCase', () => {
